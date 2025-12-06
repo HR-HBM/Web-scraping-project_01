@@ -2,10 +2,11 @@ services:
   - type: cron
     name: news-scraper
     env: python
-    schedule: "30 3 * * *"  # 8:30 AM IST (3:00 AM UTC + 30 mins)
+    runtime: python-3.11
+    schedule: "0 3 * * *"  # 8:30 AM IST (3:00 AM UTC)
     buildCommand: |
       pip install -r requirements.txt
-      playwright install --with-deps chromium
+      python -m playwright install --with-deps chromium
     startCommand: python main.py
     envVars:
       - key: SENDER_EMAIL
