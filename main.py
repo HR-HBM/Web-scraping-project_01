@@ -298,7 +298,6 @@
 
 
 
-
 from bs4 import BeautifulSoup
 import requests
 import smtplib
@@ -363,14 +362,17 @@ def scrape_product_hunt():
             
             print("Loading Product Hunt...")
             # Navigate to Product Hunt
-            page.goto("https://www.producthunt.com/", wait_until="domcontentloaded")
+            page.goto("https://www.producthunt.com/", wait_until="domcontentloaded", timeout=30000)
             
-            # Wait for the content to load (wait for the specific div)
+            # Wait longer and try multiple selectors
             print("Waiting for content to load...")
-            page.wait_for_selector("div.flex.flex-col.gap-10", timeout=15000)
-            
-            # Additional wait for JavaScript to finish rendering
-            time.sleep(3)
+            try:
+                # Try waiting for any of these common selectors
+                page.wait_for_load_state("networkidle", timeout=30000)
+                time.sleep(5)  # Extra wait for JavaScript
+            except:
+                print("Network idle timeout, continuing anyway...")
+                time.sleep(5)
             
             # Get the page content
             content = page.content()
