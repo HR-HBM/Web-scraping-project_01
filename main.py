@@ -382,45 +382,83 @@ def scrape_product_hunt():
             # Parse with BeautifulSoup
             soup = BeautifulSoup(content, "html.parser")
             
-            # Find the main container
-            main_div = soup.find("div", class_="flex flex-col gap-10")
+            # Debug: Print some of the HTML to see what we're getting
+            print(f"Page title: {soup.title.string if soup.title else 'No title'}")
+            print(f"Total divs found: {len(soup.find_all('div'))}")
             
-            if not main_div:
-                print("Could not find main container")
-                return "⚠️ Could not find Product Hunt content\n\n"
-            
-            # Find the nested div with flex flex-col
-            content_div = main_div.find("div", class_="flex flex-col")
-            
-            if not content_div:
-                print("Could not find content container")
-                return "⚠️ Could not find Product Hunt content container\n\n"
-            
-            # Find all section tags
-            sections = content_div.find_all("section", class_=lambda x: x and "group relative isolate flex flex-row" in x)
-            
-            print(f"Found {len(sections)} sections")
+            # Try to find any links to posts
+            all_links = soup.find_all('a', href=True)
+            post_links = [a for a in all_links if '/posts/' in a.get('href', '')]
+            print(f"Found {len(post_links)} post links")
             
             product_texts = []
             product_links = []
             
-            for section in sections:
-                # Navigate through the nested divs to find the link
-                flex_div = section.find("div", class_="flex min-w-0 flex-1 flex-col")
-                if flex_div:
-                    text_div = flex_div.find("div", class_=lambda x: x and "text-16 font-semibold" in x)
-                    if text_div:
-                        link_tag = text_div.find("a")
-                        if link_tag:
-                            title = link_tag.get_text(strip=True)
-                            link = link_tag.get("href")
-                            
-                            # Make sure link is absolute
-                            if link and link.startswith("/"):
-                                link = f"https://www.producthunt.com{link}"
-                            
-                            product_texts.append(title)
-                            product_links.append(link)
+            # If we found post links, use those directly
+            if post_links:
+                seen_urls = set()
+                for link in post_links:
+                    url = link.get('href')
+                    if url.startswith('/'):
+                        url = f"https://www.producthunt.com{url}"
+                    
+                    # Avoid duplicates
+                    if url in seen_urls:
+                        continue
+                    seen_urls.add(url)
+                    
+                    # Get the text (product name)
+                    text = link.get_text(strip=True)
+                    if text and len(text) > 0:
+                        product_texts.append(text)
+                        product_links.append(url)
+                
+                print(f"Extracted {len(product_texts)} unique products")
+            else:
+                # Fallback: try the original method
+                print("No direct post links found, trying original selectors...")
+                # Find the main container
+                main_div = soup.find("div", class_="flex flex-col gap-10")
+            
+            if not main_div:
+                print("Could not find main container")
+                # If we already have products from the direct link method, use those
+                if len(product_texts) > 0:
+                    pass  # Continue to build the email
+                else:
+                    return "⚠️ Could not find Product Hunt content\n\n"
+            
+            # Find the nested div with flex flex-col
+            if main_div and len(product_texts) == 0:
+                content_div = main_div.find("div", class_="flex flex-col")
+            
+                if not content_div:
+                    print("Could not find content container")
+                    if len(product_texts) == 0:
+                        return "⚠️ Could not find Product Hunt content container\n\n"
+                
+                # Find all section tags
+                sections = content_div.find_all("section", class_=lambda x: x and "group relative isolate flex flex-row" in x)
+                
+                print(f"Found {len(sections)} sections")
+                
+                for section in sections:
+                    # Navigate through the nested divs to find the link
+                    flex_div = section.find("div", class_="flex min-w-0 flex-1 flex-col")
+                    if flex_div:
+                        text_div = flex_div.find("div", class_=lambda x: x and "text-16 font-semibold" in x)
+                        if text_div:
+                            link_tag = text_div.find("a")
+                            if link_tag:
+                                title = link_tag.get_text(strip=True)
+                                link = link_tag.get("href")
+                                
+                                # Make sure link is absolute
+                                if link and link.startswith("/"):
+                                    link = f"https://www.producthunt.com{link}"
+                                
+                                product_texts.append(title)
+                                product_links.append(link)
             
             # Build formatted section
             if len(product_texts) == 0:
