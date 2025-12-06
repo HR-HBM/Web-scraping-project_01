@@ -4,7 +4,7 @@ services:
     env: python
     runtime: python-3.11
     schedule: "0 3 * * *"
-    buildCommand: pip install -r requirements.txt && python -m playwright install --with-deps chromium
+    buildCommand: bash build.sh
     startCommand: python main.py
     envVars:
       - key: SENDER_EMAIL
