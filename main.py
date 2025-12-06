@@ -304,12 +304,10 @@ import smtplib
 from email.message import EmailMessage
 from dotenv import load_dotenv
 import os
-from playwright.sync_api import sync_playwright
-import time
 from datetime import datetime
 
 # ----------------------------------------------------
-# SCRAPE HACKER NEWS — TOP 15
+# SCRAPE HACKER NEWS — TOP 10
 # ----------------------------------------------------
 def scrape_hacker_news():
     response = requests.get("https://news.ycombinator.com/news")
@@ -340,152 +338,12 @@ def scrape_hacker_news():
 
 
 # ----------------------------------------------------
-# SCRAPE PRODUCT HUNT WITH PLAYWRIGHT
-# ----------------------------------------------------
-def scrape_product_hunt():
-    try:
-        with sync_playwright() as p:
-            # Launch browser in headless mode with minimal dependencies
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu'
-                ]
-            )
-            context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            )
-            page = context.new_page()
-            
-            print("Loading Product Hunt...")
-            # Navigate to Product Hunt
-            page.goto("https://www.producthunt.com/", wait_until="domcontentloaded", timeout=30000)
-            
-            # Wait longer and try multiple selectors
-            print("Waiting for content to load...")
-            try:
-                # Try waiting for any of these common selectors
-                page.wait_for_load_state("networkidle", timeout=30000)
-                time.sleep(5)  # Extra wait for JavaScript
-            except:
-                print("Network idle timeout, continuing anyway...")
-                time.sleep(5)
-            
-            # Get the page content
-            content = page.content()
-            browser.close()
-            
-            print("Parsing content...")
-            # Parse with BeautifulSoup
-            soup = BeautifulSoup(content, "html.parser")
-            
-            # Debug: Print some of the HTML to see what we're getting
-            print(f"Page title: {soup.title.string if soup.title else 'No title'}")
-            print(f"Total divs found: {len(soup.find_all('div'))}")
-            
-            # Try to find any links to posts
-            all_links = soup.find_all('a', href=True)
-            post_links = [a for a in all_links if '/posts/' in a.get('href', '')]
-            print(f"Found {len(post_links)} post links")
-            
-            product_texts = []
-            product_links = []
-            
-            # If we found post links, use those directly
-            if post_links:
-                seen_urls = set()
-                for link in post_links:
-                    url = link.get('href')
-                    if url.startswith('/'):
-                        url = f"https://www.producthunt.com{url}"
-                    
-                    # Avoid duplicates
-                    if url in seen_urls:
-                        continue
-                    seen_urls.add(url)
-                    
-                    # Get the text (product name)
-                    text = link.get_text(strip=True)
-                    if text and len(text) > 0:
-                        product_texts.append(text)
-                        product_links.append(url)
-                
-                print(f"Extracted {len(product_texts)} unique products")
-            else:
-                # Fallback: try the original method
-                print("No direct post links found, trying original selectors...")
-                # Find the main container
-                main_div = soup.find("div", class_="flex flex-col gap-10")
-            
-            if not main_div:
-                print("Could not find main container")
-                # If we already have products from the direct link method, use those
-                if len(product_texts) > 0:
-                    pass  # Continue to build the email
-                else:
-                    return "⚠️ Could not find Product Hunt content\n\n"
-            
-            # Find the nested div with flex flex-col
-            if main_div and len(product_texts) == 0:
-                content_div = main_div.find("div", class_="flex flex-col")
-            
-                if not content_div:
-                    print("Could not find content container")
-                    if len(product_texts) == 0:
-                        return "⚠️ Could not find Product Hunt content container\n\n"
-                
-                # Find all section tags
-                sections = content_div.find_all("section", class_=lambda x: x and "group relative isolate flex flex-row" in x)
-                
-                print(f"Found {len(sections)} sections")
-                
-                for section in sections:
-                    # Navigate through the nested divs to find the link
-                    flex_div = section.find("div", class_="flex min-w-0 flex-1 flex-col")
-                    if flex_div:
-                        text_div = flex_div.find("div", class_=lambda x: x and "text-16 font-semibold" in x)
-                        if text_div:
-                            link_tag = text_div.find("a")
-                            if link_tag:
-                                title = link_tag.get_text(strip=True)
-                                link = link_tag.get("href")
-                                
-                                # Make sure link is absolute
-                                if link and link.startswith("/"):
-                                    link = f"https://www.producthunt.com{link}"
-                                
-                                product_texts.append(title)
-                                product_links.append(link)
-            
-            # Build formatted section
-            if len(product_texts) == 0:
-                print("No products found")
-                return "⚠️ No products found on Product Hunt\n\n"
-            
-            print(f"Successfully scraped {len(product_texts)} products")
-            ph_body = "🚀 Product Hunt Featured Products (Today's Trending):\n\n"
-            for i in range(len(product_texts)):
-                ph_body += f"{i+1}. {product_texts[i]}\n"
-                ph_body += f"   {product_links[i]}\n\n"
-            
-            return ph_body
-            
-    except Exception as e:
-        print(f"Error: {str(e)}")
-        return f"⚠️ Error scraping Product Hunt: {str(e)}\n\n"
-
-
-# ----------------------------------------------------
-# COMBINE INTO ONE EMAIL
+# CREATE EMAIL
 # ----------------------------------------------------
 print("Starting scraping process...")
-ph_section = scrape_product_hunt()
 hn_section = scrape_hacker_news()
 
-email_body = ph_section + "\n" + hn_section
+email_body = hn_section
 
 print("\n" + "="*60)
 print("EMAIL PREVIEW:")
@@ -504,10 +362,10 @@ RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
 
 def send_email():
     # Get current date for unique subject
-    today = datetime.now().strftime("%B %d, %Y")  # e.g., "December 05, 2024"
+    today = datetime.now().strftime("%B %d, %Y")
     
     msg = EmailMessage()
-    msg["Subject"] = f"Daily News Digest - {today}"
+    msg["Subject"] = f"Daily Hacker News Digest - {today}"
     msg["From"] = SENDER_EMAIL
     msg["To"] = RECIPIENT_EMAIL
     msg.set_content(email_body)
