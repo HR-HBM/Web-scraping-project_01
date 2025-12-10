@@ -319,7 +319,7 @@ def scrape_hacker_news():
     article_links = []
 
     for i, article_tag in enumerate(articles):
-        if i >= 10:
+        if i >= 15:
             break
 
         title = article_tag.getText()
@@ -329,8 +329,8 @@ def scrape_hacker_news():
         article_links.append(link)
 
     # Build formatted section
-    hn_body = "🔶 Top 10 Hacker News Posts:\n\n"
-    for i in range(10):
+    hn_body = "🔶 Top 15 Hacker News Posts:\n\n"
+    for i in range(15):
         hn_body += f"{i+1}. {article_texts[i]}\n"
         hn_body += f"   {article_links[i]}\n\n"
 
@@ -358,7 +358,9 @@ load_dotenv()
 
 SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
-RECIPIENT_EMAIL = os.getenv("RECIPIENT_EMAIL")
+RECIPIENT_EMAIL1 = os.getenv("RECIPIENT_EMAIL1")
+RECIPIENT_EMAIL2 = os.getenv("RECIPIENT_EMAIL2")
+
 
 def send_email():
     # Get current date for unique subject
@@ -367,13 +369,19 @@ def send_email():
     msg = EmailMessage()
     msg["Subject"] = f"Daily Hacker News Digest - {today}"
     msg["From"] = SENDER_EMAIL
-    msg["To"] = RECIPIENT_EMAIL
+    msg["To"] = SENDER_EMAIL
     msg.set_content(email_body)
+
+    bcc_list = [RECIPIENT_EMAIL1, RECIPIENT_EMAIL2]
+    all_recipients = [SENDER_EMAIL] + bcc_list
+
+
 
     with smtplib.SMTP("smtp.gmail.com", 587) as connection:
         connection.starttls()
         connection.login(SENDER_EMAIL, SENDER_PASSWORD)
-        connection.send_message(msg)
+        connection.send_message(msg, to_addrs=all_recipients)
+
 
 
 # ----------------------------------------------------
