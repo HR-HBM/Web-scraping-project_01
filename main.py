@@ -360,6 +360,7 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL")
 SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 RECIPIENT_EMAIL1 = os.getenv("RECIPIENT_EMAIL1")
 RECIPIENT_EMAIL2 = os.getenv("RECIPIENT_EMAIL2")
+RECIPIENT_EMAIL3 = os.getenv("RECIPIENT_EMAIL3")
 
 
 def send_email():
@@ -372,7 +373,7 @@ def send_email():
     msg["To"] = SENDER_EMAIL
     msg.set_content(email_body)
 
-    bcc_list = [RECIPIENT_EMAIL1, RECIPIENT_EMAIL2]
+    bcc_list = [RECIPIENT_EMAIL1, RECIPIENT_EMAIL2, RECIPIENT_EMAIL3]
     all_recipients = [SENDER_EMAIL] + bcc_list
 
 
